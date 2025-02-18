@@ -1,21 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+const mqtt = require("mqtt");
 import Sidebar from './Sidebar';
-import axios from 'axios';
+
+// MQTT settings
+const mqttHost = 'broker.hivemq.com';
+const protocol = 'mqtt';
+const port = '1883';
+let mqttClient = null;
 
 const Home = () => {
   const [topic, setTopic] = useState('');
   const [message, setMessage] = useState('');
 
-  const handlePublish = async () => {
-    try {
-      const response = await axios.post('/publish', { topic, message });
-      console.log(response.data);
-      // Clear the inputs after publishing
-      setTopic('');
-      setMessage('');
-    } catch (error) {
-      console.error('Error publishing message:', error);
+  // Connect to MQTT Broker on component mount
+  useEffect(() => {
+    const clientId = 'client' + Math.random().toString(36).substring(7);
+    const hostURL = `${protocol}://${mqttHost}:${port}`;
+
+    const options = {
+      keepalive: 60,
+      clientId: clientId,
+      protocolId: 'MQTT',
+      protocolVersion: 4,
+      clean: true,
+      reconnectPeriod: 1000,
+      connectTimeout: 30 * 1000,
+    };
+
+    mqttClient = mqtt.connect(hostURL, options);
+
+    mqttClient.on('error', (err) => {
+      console.log('Error: ', err);
+      mqttClient.end();
+    });
+
+    mqttClient.on('reconnect', () => {
+      console.log('Reconnecting...');
+    });
+
+    mqttClient.on('connect', () => {
+      console.log('Client connected: ' + clientId);
+    });
+
+    mqttClient.on('message', (topic, message) => {
+      console.log('Received Message: ' + message.toString() + '\nOn topic: ' + topic);
+    });
+
+    // Cleanup connection on component unmount
+    return () => {
+      if (mqttClient) {
+        mqttClient.end();
+      }
+    };
+  }, []);
+
+  // Function to publish message
+  const publishMessage = (topic, message) => {
+    console.log(`Sending Topic: ${topic}, Message: ${message}`);
+    if (mqttClient && mqttClient.connected) {
+      mqttClient.publish(topic, message, {
+        qos: 0,
+        retain: false,
+      });
     }
+  };
+
+  // Handle publish button click
+  const handlePublish = () => {
+    console.log(`Publishing topic: ${topic} with message: ${message}`);
+    publishMessage(topic, message); // Publish message via MQTT
+    setTopic(''); // Clear the topic input
+    setMessage(''); // Clear the message input
   };
 
   return (

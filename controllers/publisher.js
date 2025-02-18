@@ -8,7 +8,7 @@ mqttClient.connect();
 
 exports.getPublisherPage = async function (req, res) {
   try {
-    res.render("pages/home");
+    res.render("pages/publisher");
   } catch (error) {
     return res.status(400).json({ status: 400, message: error.message });
   }
